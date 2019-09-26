@@ -2,12 +2,21 @@
 
 source $JBOSS_HOME/bin/launch/jgroups_common.sh
 
+preConfigure() {
+  init_protocol_add_operations_store
+}
+
 prepareEnv() {
   unset JGROUPS_ENCRYPT_SECRET
   unset JGROUPS_ENCRYPT_PASSWORD
   unset JGROUPS_ENCRYPT_KEYSTORE_DIR
   unset JGROUPS_ENCRYPT_KEYSTORE
   unset JGROUPS_ENCRYPT_NAME
+}
+
+finalVerification() {
+  # Adds the protocol add operations to the cli script in the correct order so that the add-indices don't interfere
+  order_protocol_add_operations_by_add_index_descending
 }
 
 configure() {
@@ -80,7 +89,9 @@ create_jgroups_elytron_encrypt_sym_cli() {
         fi
 
         op=("/subsystem=jgroups/stack=$stack/protocol=SYM_ENCRYPT:add(add-index=${index}, key-store=\"${jg_encrypt_keystore}\", key-alias=\"${jg_encrypt_key_alias}\", key-credential-reference={clear-text=\"${jg_encrypt_password}\"})")
-        config="${config} $(configure_protocol_cli_helper "${stack}" "SYM_ENCRYPT" "${op[@]}")"
+        local operation
+        operation="${config} $(configure_protocol_cli_helper "${stack}" "SYM_ENCRYPT" "${op[@]}")"
+        store_protocol_add_operation "${stack}" "${index}" "${operation}"
       done <<< "${stackNames}"
     fi
 
@@ -155,7 +166,9 @@ create_jgroups_encrypt_asym_cli() {
             "/subsystem=jgroups/stack=$stack/protocol=ASYM_ENCRYPT/property=asym_keylength:add(value=\"${asym_keylength:-512}\")"
             "/subsystem=jgroups/stack=$stack/protocol=ASYM_ENCRYPT/property=asym_algorithm:add(value=\"${change_key_on_leave:-true}\")"
         )
-        config="${config} $(configure_protocol_cli_helper "${stack}" "ASYM_ENCRYPT" "${op[@]}")"
+        local operation
+        operation="${config} $(configure_protocol_cli_helper "${stack}" "ASYM_ENCRYPT" "${op[@]}")"
+        store_protocol_add_operation "${stack}" "${index}" "${operation}"
       done  <<< "${stackNames}"
     fi
 
@@ -232,7 +245,9 @@ create_jgroups_elytron_legacy_cli() {
           "/subsystem=jgroups/stack=$stack/protocol=SYM_ENCRYPT/property=store_password:add(value=\"${jg_encrypt_password}\")"
           "/subsystem=jgroups/stack=$stack/protocol=SYM_ENCRYPT/property=alias:add(value=\"${jg_encrypt_name}\")"
         )
-      config="${config} $(configure_protocol_cli_helper "${stack}" "SYM_ENCRYPT" "${op[@]}")"
+      local operation
+      operation="${config} $(configure_protocol_cli_helper "${stack}" "SYM_ENCRYPT" "${op[@]}")"
+      store_protocol_add_operation "${stack}" "${index}" "${operation}"
     done <<< "${stackNames}"
   fi
 

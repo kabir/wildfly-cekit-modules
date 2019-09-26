@@ -2,6 +2,10 @@
 
 source $JBOSS_HOME/bin/launch/jgroups_common.sh
 
+preConfigure() {
+  init_protocol_add_operations_store
+}
+
 prepareEnv() {
   unset OPENSHIFT_KUBE_PING_NAMESPACE
   unset OPENSHIFT_KUBE_PING_LABELS
@@ -12,6 +16,7 @@ prepareEnv() {
   unset NODE_NAME
   unset KUBERNETES_NAMESPACE
   unset KUBERNETES_LABELS
+
 }
 
 configure() {
@@ -33,6 +38,11 @@ preConfigure() {
 postConfigure() {
   unset CONF_AUTH_MODE
   unset CONF_PING_MODE
+}
+
+finalVerification() {
+  # Adds the protocol add operations to the cli script in the correct order so that the
+  order_protocol_add_operations_by_add_index_descending
 }
 
 check_view_pods_permission() {
@@ -177,7 +187,9 @@ generate_jgroups_auth_config_cli() {
         op=("/subsystem=jgroups/stack=$stack/protocol=AUTH:add(add-index=${index})"
             "/subsystem=jgroups/stack=$stack/protocol=AUTH/token=digest:add(algorithm="${digest_algorithm:-SHA-512}", shared-secret-reference={clear-text="${cluster_password}"})"
         )
-        config="${config} $(configure_protocol_cli_helper "$stack" "AUTH" "${op[@]}")"
+        local operation
+        operation="${config} $(configure_protocol_cli_helper "$stack" "AUTH" "${op[@]}")"
+        store_protocol_add_operation "${stack}" "${index}" "${operation}"
       done <<< "${stackNames}"
   fi
 
